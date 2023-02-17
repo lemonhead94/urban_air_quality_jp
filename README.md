@@ -15,8 +15,6 @@
 |--references\        # References
   |--references.bib     # BibTeX references
   |--apa.csl            # APA 7th Edition Citation Style Language
-
-|--analysis.html      # Report rendered by Bookdown with animated worcloud2
 ```
 
 ## Installation
