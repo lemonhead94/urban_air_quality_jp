@@ -58,6 +58,13 @@ $$
 $$
 
 
+#Loading Data
+Just as short testing. According to this data we have 90'425 rows. According to the Table we should have 90'430.So small differences would may be explainable with this. 
+```{r}
+nishitato <- read.csv("/Users/michellekoch/Documents/GitHub/urban_air_quality_jp/data/nishitateno_burke_2020.csv", sep=";")
+nrow(nishitato) #90425
+```
+
 
 # Conclusion  
 
