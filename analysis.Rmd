@@ -65,6 +65,13 @@ nishitato <- read.csv("/Users/michellekoch/Documents/GitHub/urban_air_quality_jp
 nrow(nishitato) #90425
 ```
 
+#First small regression
+Dont really now what Open AI and me did here but just to have a first code in here, which is close :-D
+```{r}
+model <- feols(lnhmax_ndd ~ treatment_effects*treatment1992 + temp + precip + daylight + snow + cloud + factor(m_code) + factor(y_month) | m_code + y_month, data = nishitato)
+summary(model)
+```
+
 
 # Conclusion  
 
