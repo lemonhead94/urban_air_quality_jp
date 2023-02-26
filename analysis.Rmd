@@ -200,7 +200,7 @@ $$
 \newpage
 ## Replication Modeling
 
-```{r modeling, echo=TRUE, message=FALSE, warning=FALSE}
+```{r modeling, echo=TRUE, message=FALSE, warning=FALSE, fig.show="hold", out.width="100%", results='asis'}
 # Monitor fixed effects (225 - m_code)
 model1 <- feols(fml = lnaverage_ndd ~ treatment_effects * treatment1992 | 
                   month + m_code, data = df)
@@ -214,7 +214,7 @@ model3 <- feols(fml = lnaverage_ndd ~ treatment_effects * treatment1992 +
                   temp + precip + daylight + snow + wind + cloud |
                   month*year + m_code, data = df)
 
-etable(model1, model2, model3)
+fixest::etable(model1, model2, model3, tex = TRUE)
 ```
 
 **Interpretation**
@@ -223,28 +223,20 @@ etable(model1, model2, model3)
 - ...
 
 \newpage
-## Results
 
-```{r some-table}
-hourly_model <- feols(fml = lnhmax_ndd ~ treatment_effects * treatment1992 + temp + precip + daylight + snow + wind + cloud | month + m_code, data = df)
+## Addons
+
+Coefficients of the treatment variable when the pollution variables are measured by Hourly Maximum.
+
+Daily Maximum is not possible as before mentioned due to missing data points...
+
+```{r addons, echo=TRUE, message=FALSE, warning=FALSE,}
+hourly_model <- feols(fml = lnhmax_ndd ~ treatment_effects * treatment1992 + 
+                        temp + precip + daylight + snow + wind + cloud | 
+                        month + m_code, data = df)
 hourly_max <- coef(summary(hourly_model))[["treatment_effects"]]
 hourly_max
 ```
-
-#Loading Data
-Just as short testing. According to this data we have 90'425 rows. According to the Table we should have 90'430.So small differences would may be explainable with this. 
-```{r}
-nishitato <- read.csv("/Users/michellekoch/Documents/GitHub/urban_air_quality_jp/data/nishitateno_burke_2020.csv", sep=";")
-nrow(nishitato) #90425
-```
-
-#First small regression
-Dont really now what Open AI and me did here but just to have a first code in here, which is close :-D
-```{r}
-model <- feols(lnhmax_ndd ~ treatment_effects*treatment1992 + temp + precip + daylight + snow + cloud + factor(m_code) + factor(y_month) | m_code + y_month, data = nishitato)
-summary(model)
-```
-
 
 # Conclusion  
 
