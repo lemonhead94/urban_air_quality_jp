@@ -1,6 +1,7 @@
 ---
 output:
   bookdown::pdf_document2:
+    fig_caption: yes
     includes:
       in_header: latex/preamble.tex
       before_body: latex/titlepage.tex
@@ -27,7 +28,7 @@ header-includes:
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, messages = FALSE)
-packages <- c("dplyr","readxl","tidyverse", "bookdown", "car", "ivreg", "sandwich", "rddensity", "rdrobust", "fixest", "Synth")
+packages <- c("dplyr","readxl","tidyverse", "bookdown", "car", "ivreg", "sandwich", "rddensity", "rdrobust", "fixest", "Synth", "lubridate", "stargazer")
 package.check <- lapply(packages, FUN = function(x) {
     if (!require(x, character.only = TRUE)) {
         install.packages(x, dependencies = TRUE)
@@ -45,18 +46,190 @@ package.check <- lapply(packages, FUN = function(x) {
 \fancyhead[R]{Natural Experiments Using R}
 # Introduction
 
+The following study showcases that ...
 
+## EDA
+
+The first step was to do pre-processing of the data.
+
+- convert the absolute number of months into a date format
+- get the actual values for the the provided log of the monthly and hourly ambient concentration of NO2
+- extract the month and year of the dates for a later fixed-effects feature
+
+
+```{r preprocessing, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center', fig.width=10, fig.height=5}
+df <- read.csv("data/nishitateno_burke_2020.csv", sep = ";")
+first_date <- as.Date("1981-01-01")
+last_date <- as.Date("2015-12-01")
+
+dates <- data.frame(
+  y_date = seq(first_date, last_date, by = "month"),
+  y_month = seq(252, 671, by = 1)
+)
+df <- merge(dates, df, by = "y_month", all.x = TRUE)
+# get the actual value from the log of lnaverage_ndd
+df$average_ndd <- exp(df$lnaverage_ndd) %>% round(2)
+# get the actual value from the log of lnhmax_ndd
+df$max_ndd <- exp(df$lnhmax_ndd) %>% round(2)
+
+# add month and year column variables for fixed effects
+df$month <- month(df$y_date)
+df$year <- year(df$y_date)
+```
+
+```{r EDA-1, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', fig.width=10, fig.height=5}
+# mean of lnaverage_ndd
+nnd_graph <- df %>% 
+    group_by(y_date, treatment_effects) %>%
+    summarize(average_ndd_mean = mean(average_ndd))
+
+# plot the mean of average_ndd
+ggplot(data = nnd_graph, 
+       mapping = aes(y=average_ndd_mean,
+                    x=y_date,
+                    color=factor(treatment_effects))) +
+  geom_line(size = 0.5) +
+  guides(color = guide_legend(title = element_blank())) +
+  scale_color_manual(labels = c("Control", "Treatment"), 
+                     values = c("black", "brown")) +
+  labs(x="", 
+       y = "Mean Ambient Concentraion of NO2 (ppb)",
+       title = "Time Trends of the Monthly Ambient Concentraion of NO2") +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 42), expand = c(0,0)) +
+  # Intervention is June 1992
+  geom_vline(xintercept = as.Date("1992-06-01"), linetype = "dashed", color = "red") +
+  # government support in 2004
+  geom_vline(xintercept = as.Date("2004-01-01"), linetype = "dashed", color = "blue") +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+        legend.position = "bottom")
+```
+
+
+```{r EDA-2, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', fig.width=10, fig.height=5}
+# mean of lnaverage_ndd
+nnd_graph <- df %>% 
+    group_by(y_date, treatment_effects) %>%
+    summarize(max_ndd_mean = mean(max_ndd))
+
+# plot the mean of max_ndd
+ggplot(data = nnd_graph, 
+       mapping = aes(y=max_ndd_mean,
+                    x=y_date,
+                    color=factor(treatment_effects))) +
+  geom_line(size = 0.5) +
+  guides(color = guide_legend(title = element_blank())) +
+  scale_color_manual(labels = c("Control", "Treatment"), 
+                     values = c("black", "brown")) +
+  labs(x="", 
+       y = "Hourly maximum NO2 Concentraion (ppb)",
+       title = "Time Trends of the Hourly Maximum Ambient Concentraion of NO_2") +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 140), expand = c(0,0)) +
+  # Intervention is June 1992
+  geom_vline(xintercept = as.Date("1992-06-01"), linetype = "dashed", color = "red") +
+  # government support in 2004
+  geom_vline(xintercept = as.Date("2004-01-01"), linetype = "dashed", color = "blue") +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
+        legend.position = "bottom")
+```
+
+From the above charts, it is clear that the intervention date was in June 1992.
+In addition, we do not appear to have data for the treatment group prior to the intervention date provided by Lukas Schmid.
+According to Nishitateno and Burke [-@Nishitateno2020], the treatment group covers 190 monitors in 109 designated municipalities in Tokyo, Kanagawa, Chiba, Saitama, Osaka, and Hyogo prefectures. The control group covers 35 monitors in five non-designated municipalities (Sapporo, Sendai, Hiroshima, Kitakyusyu, and Fukuoka).
+In addition, Nishitateno and Burke [-@Nishitateno2020] mention that they do not use the post-compliance period (January 2004 – December 2015) as the treatment period due to unclear cutoff as can be observed in blue above. The reason seem to be non-compliant vehicles had been replaced before the compliance obligation began induced through government support.
+
+These has been verified below:
+
+```{r EDA-treament-group, echo=TRUE, message=FALSE, warning=FALSE}
+# Treament Group
+df %>% 
+    filter(treatment1992 == 1) %>%
+    filter(treatment_effects == 1) %>%
+    group_by(m_code) %>%
+    summarize(n = n()) %>%
+    nrow()
+```
+
+```{r EDA-control-group, echo=TRUE, message=FALSE, warning=FALSE}
+# Control Group
+df %>% 
+    filter(treatment1992 == 0) %>%
+    filter(treatment_effects == 0) %>%
+    group_by(m_code) %>%
+    summarize(n = n()) %>%
+    nrow()
+```
+
+Another column that seems to be missing in the provided data set is the daily maximum NO2 concentration.
+
+\newpage
 # Methodology
 
-Nishitateno and Burke [-@Nishitateno2020, p. 454] illustrate, the identification strategy estimates the average treatment effect ($\beta$) using the following specification:
+Nishitateno and Burke [-@Nishitateno2020, p. 454] illustrate, the identification strategy estimates the log of the monthly mean ambient concentraion of $NO_2$ using the following specification:
 
 $$
 \begin{aligned}
-\ln N_{m, t}=\alpha+ & \beta \text { Treatment }_{m, t}+\delta \boldsymbol{X}_{m, t}+\sum_{m=1}^{225} \theta_m \text { Monitor }_m+\sum_{t=1}^{420} \gamma_t \text { Time }_t \\
-& +\varepsilon_{m, t}
+& \ln N_{m, t}=\alpha \\
+& +\sum_{\text {year }=1992}^{2015} \beta_{\text {year }}\left(\text {Treated}_m \times \text {Post}_{\text {year}}\right) \\
+& +\delta \boldsymbol{X}_{m, t}+\sum_{m=1}^{225} \theta_m \text { Monitor }_m \\
+& +\sum_{t=1}^{420} \gamma_t \text { Time }_t+\varepsilon_{m, t}
 \end{aligned}
 $$
+**Notation:**
 
+- $\ln N_{m, t}$ represents the log of the monthly mean ambient concentration of $NO_2$
+
+- $\beta_{year}$ change in $NO_2$ concentrations pre-intervention vs post-intervention period in comparison to the control group
+
+- $_m$ is pollution monitor
+
+- $_t$ is the month
+
+- $X$ is a vector of weather conditions (temperature, precipitation, sunlight duration, snowfall, wind, and cloud cover) as well as monitor-specific time trends
+
+- $\theta$ monitor fixed effects (c_code) that account for time-invariant factors relevant to pollution level (e.g., location)
+
+- $\gamma$ extracted month-of-year fixed effect to control for any national-level monthly changes
+
+- $\varepsilon$ is the error term
+
+
+\newpage
+## Replication Modeling
+
+```{r modeling, echo=TRUE, message=FALSE, warning=FALSE}
+# Monitor fixed effects (225 - m_code)
+model1 <- feols(fml = lnaverage_ndd ~ treatment_effects * treatment1992 | 
+                  month + m_code, data = df)
+# fixed effects months + Monitor fixed effects + Weather variables
+model2 <- feols(fml = lnaverage_ndd ~ treatment_effects * treatment1992 + 
+                  temp + precip + daylight + snow + wind + cloud | 
+                  month + m_code, data = df)
+
+# EXTRA: fixed effects months, weather and monitor-specific time trends (partially)
+model3 <- feols(fml = lnaverage_ndd ~ treatment_effects * treatment1992 + 
+                  temp + precip + daylight + snow + wind + cloud |
+                  month*year + m_code, data = df)
+
+etable(model1, model2, model3)
+```
+
+**Interpretation**
+
+- the data provided seems to be missing 5 data points
+- ...
+
+\newpage
+## Results
+
+```{r some-table}
+hourly_model <- feols(fml = lnhmax_ndd ~ treatment_effects * treatment1992 + temp + precip + daylight + snow + wind + cloud | month + m_code, data = df)
+hourly_max <- coef(summary(hourly_model))[["treatment_effects"]]
+hourly_max
+```
 
 #Loading Data
 Just as short testing. According to this data we have 90'425 rows. According to the Table we should have 90'430.So small differences would may be explainable with this. 
