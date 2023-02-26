@@ -141,7 +141,7 @@ In addition, we do not appear to have data for the treatment group prior to the 
 According to Nishitateno and Burke [-@Nishitateno2020], the treatment group covers 190 monitors in 109 designated municipalities in Tokyo, Kanagawa, Chiba, Saitama, Osaka, and Hyogo prefectures. The control group covers 35 monitors in five non-designated municipalities (Sapporo, Sendai, Hiroshima, Kitakyusyu, and Fukuoka).
 In addition, Nishitateno and Burke [-@Nishitateno2020] mention that they do not use the post-compliance period (January 2004 – December 2015) as the treatment period due to unclear cutoff as can be observed in blue above. The reason seem to be non-compliant vehicles had been replaced before the compliance obligation began induced through government support.
 
-These has been verified below:
+This has been verified below:
 
 ```{r EDA-treament-group, echo=TRUE, message=FALSE, warning=FALSE}
 # Treament Group
