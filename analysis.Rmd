@@ -262,7 +262,7 @@ fixest::etable(model1, model2, model3, tex = TRUE)
 (Our result suggests that designation under the ANCL reduced the monthly mean ambient concentration of NO2  by 10–16% on average over June 1992–December 2015 for monitors in treated areas.
 Treatment Effect = -0.1288 ± t.critical (df, alpha/2) * 0.0136
 95% Confidence Interval = (-0.1552, -0.1023)) -> Written in presentation. 
-
+What also needs to be included ist that including more variables does not change the outcome. (If this is really the case?) -> Should we make a model with more variables to verify this?
 
 \newpage
 
