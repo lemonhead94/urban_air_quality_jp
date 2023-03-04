@@ -45,17 +45,86 @@ package.check <- lapply(packages, FUN = function(x) {
 \fancyhead[L]{Reproducibility Study}
 \fancyhead[R]{Natural Experiments Using R}
 # Introduction
+This Reproducibility Study was conducted to verify the findings of the original study "Have Vehicle Registration Restrictions Improved Urban Air Quality in Japan?" conducted by Shuhei Nishitateno and Paul J. Burke in 2020. The authors of the original study investigated the impact of the Automobile NOx Control Law on vehicular air pollution and public health in Japanese metropolitans. The reproducibility study replicates the methodology and data analysis of the original study to confirm the validity and reliability of the findings.
 
-The following study showcases that ...
+# Motivation
+In Japanese metropolitans, the residents have long been concerned about vehicular air pollution. Legal action was taken in 1978 against the national government, expressway companies, and automakers, resulting in the introduction of the Automobile NOx Control Law in 1992. 
+The law restricted vehicle registration, leading to the removal of 2.6 million polluting vehicles between 1992 and 2015 and a 3%-6% reduction in NO2 concentration in treated areas. This reduction brought health benefits, including lower asthma mortality rates and an estimated saving of US$104 million in associated health costs. The success of the introduction of this law is a motivating example of how collective action can promote positive changes in public health and the environment. 
 
-## EDA
+# The Data
+This study utilizes a monthly panel dataset from January 1981 to December 2015, focusing on pollution monitors in Japan. The treatment group consists of 109 municipalities designated in 1992 under the Automobile NOx Control Law (ANCL), while the control group includes five urban municipalities not subject to the ANCL. The main data source is the Environmental GIS compiled by the National Institute for Environmental Studies (NIES), while meteorological data is obtained from the Japan Meteorological Agency (JMA). Annual demographic and socioeconomic data (which is not part of this repdoducibility study) are sourced from the System of Social and Demographic Statistics compiled by the Ministry of Internal Affairs and Communications (MIAC).
 
-The first step was to do pre-processing of the data.
+## Key variables
+Below, you will find a description of the variables used in the data set, as well as their original source.
+
+| Variable         | Description                                                                                                           | Source                   |
+|------------------|-----------------------------------------------------------------------------------------------------------------------|--------------------------|
+| lnaverage_ndd    | Monitor-level NO2 concentration measured by the monthly mean. Unit: ppb.                                             | NIES                     |
+| lnhmax_ndd       | Monitor-level NO2 concentration measured by the hourly maximum. Unit: ppb.                                             | NIES                     |
+| dabove_nd        | Days exceeding national standard: Days exceeding 60 ppb in terms of the daily average per month.                       | NIES                         |
+| treatment_effects| Monthly mean temperature measured every 10 minutes at a meteorological station nearest to the pollution monitor.      | JMA                      |
+| temp             | Monthly mean temperature measured every 10 minutes at a meteorological station nearest to the pollution monitor.      | JMA                      |
+| precip           | Total precipitation per month, millimeters.                                                                           | JMA                         |
+| wind             | Monthly mean wind velocity measured every 10 minutes, meters per second.                                              | JMA                         |
+| daylight         | Total daylight duration per month, hours.                                                                             | JMA                         |
+| snow             | Total snowfall per month, centimeters.                                                                                 | JMA                        |
+| cloud            | Degree of cloud cover per month, 0-10.                                                                                 | JMA                        |
+| treatment1992    | Time-varying dummy variable equal to one if a monitor is located in a municipality subject to the ANCL and zero otherwise.| Ministry of the Environment|
+| y_month          | Absolute number of months                                                                                                 |                         |
+| m_code           | Regions in Japan                                                                                                      |                        |
+
+# Method
+
+## Difference-in-Differences - Setup
+A used technique to estimate the causal effect of an intervention on an outcome of interest is the Difference-in-Differences (DID) method. To be able to use the Approach of the DID method we need two groups (a control group and a treatment group) and two time periods (a pre-intervention period and a post-intervention period). The idea behind the method is to compare the changes in the outcome variable over time in the treatment group to those in the control group and to see if the difference between the two groups changes after the intervention.
+
+In this particular study, the goal is to compare the average temporal changes in pollution levels before and after the intervention in municipalities subject to the Automobile NOx Control Law (ANCL) with those that were not subject to the law. To meet the above mentioned requirements, the study includes a control group of 109 municipalities without ANCL and a treatment group of 5 municipalities with ANCL. The time periods for the study are from January 1981 to May 1992 (t=0) and from June 1992 to December 2015 (t=1). 
+
+In the next stage of the study, after pre-processing the data, we will be checking the parallel trend assumption. This assumption is a vital part of the Difference-in-Differences (DID) method and its validity is crucial to the results obtained. By verifying the parallel trend, we will be able to ensure that the results of the study are accurate and that the conclusions we draw are reliable. This check will also help to confirm that the changes observed in pollution levels between the two groups, one subject to the Automobile NOx Control Law and one without, would have remained constant even if the intervention had not taken place. This is important in order to make a meaningful comparison between the pre and post-intervention changes in pollution levels.
+
+## Methodology
+
+Nishitateno and Burke [-@Nishitateno2020, p. 454] illustrate, the identification strategy estimates the log of the monthly mean ambient concentraion of $NO_2$ using the following specification:
+
+$$
+\begin{aligned}
+& \ln N_{m, t}=\alpha \\
+& +\sum_{\text {year }=1992}^{2015} \beta_{\text {year }}\left(\text {Treated}_m \times \text {Post}_{\text {year}}\right) \\
+& +\delta \boldsymbol{X}_{m, t}+\sum_{m=1}^{225} \theta_m \text { Monitor }_m \\
+& +\sum_{t=1}^{420} \gamma_t \text { Time }_t+\varepsilon_{m, t}
+\end{aligned}
+$$
+**Notation:**
+
+- $\ln N_{m, t}$ represents the log of the monthly mean ambient concentration of $NO_2$
+
+- $\beta_{year}$ change in $NO_2$ concentrations pre-intervention vs post-intervention period in comparison to the control group
+
+- $_m$ is pollution monitor
+
+- $_t$ is the month
+
+- $X$ is a vector of weather conditions (temperature, precipitation, sunlight duration, snowfall, wind, and cloud cover) as well as monitor-specific time trends
+
+- $\theta$ monitor fixed effects (c_code) that account for time-invariant factors relevant to pollution level (e.g., location)
+
+- $\gamma$ extracted month-of-year fixed effect to control for any national-level monthly changes
+
+- $\varepsilon$ is the error term
+
+
+\newpage
+
+# Exploratory Data Analysis
+
+## Pre-Processing
+The pre-processing of the data was the first step in the exploratory data analysis (EDA) of the Reproducibility Study. This step involved cleaning and preparing the data for further analysis, ensuring that it was ready for use in the evaluation of the original findings. 
+
+The following steps were done: 
 
 - convert the absolute number of months into a date format
 - get the actual values for the the provided log of the monthly and hourly ambient concentration of NO2
 - extract the month and year of the dates for a later fixed-effects feature
-
 
 ```{r preprocessing, echo=TRUE, message=FALSE, warning=FALSE, fig.align='center', fig.width=10, fig.height=5}
 df <- read.csv("data/nishitateno_burke_2020.csv", sep = ";")
@@ -135,9 +204,8 @@ ggplot(data = nnd_graph,
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
         legend.position = "bottom")
 ```
-
+@Jorit bitte noch den neuen Code machen und die description ergänzen  
 From the above charts, it is clear that the intervention date was in June 1992.
-In addition, we do not appear to have data for the treatment group prior to the intervention date provided by Lukas Schmid.
 According to Nishitateno and Burke [-@Nishitateno2020], the treatment group covers 190 monitors in 109 designated municipalities in Tokyo, Kanagawa, Chiba, Saitama, Osaka, and Hyogo prefectures. The control group covers 35 monitors in five non-designated municipalities (Sapporo, Sendai, Hiroshima, Kitakyusyu, and Fukuoka).
 In addition, Nishitateno and Burke [-@Nishitateno2020] mention that they do not use the post-compliance period (January 2004 – December 2015) as the treatment period due to unclear cutoff as can be observed in blue above. The reason seem to be non-compliant vehicles had been replaced before the compliance obligation began induced through government support.
 
@@ -163,42 +231,12 @@ df %>%
     nrow()
 ```
 
-Another column that seems to be missing in the provided data set is the daily maximum NO2 concentration.
+A column that seems to be missing in the provided data set is the daily maximum NO2 concentration.
 
 \newpage
-# Methodology
 
-Nishitateno and Burke [-@Nishitateno2020, p. 454] illustrate, the identification strategy estimates the log of the monthly mean ambient concentraion of $NO_2$ using the following specification:
-
-$$
-\begin{aligned}
-& \ln N_{m, t}=\alpha \\
-& +\sum_{\text {year }=1992}^{2015} \beta_{\text {year }}\left(\text {Treated}_m \times \text {Post}_{\text {year}}\right) \\
-& +\delta \boldsymbol{X}_{m, t}+\sum_{m=1}^{225} \theta_m \text { Monitor }_m \\
-& +\sum_{t=1}^{420} \gamma_t \text { Time }_t+\varepsilon_{m, t}
-\end{aligned}
-$$
-**Notation:**
-
-- $\ln N_{m, t}$ represents the log of the monthly mean ambient concentration of $NO_2$
-
-- $\beta_{year}$ change in $NO_2$ concentrations pre-intervention vs post-intervention period in comparison to the control group
-
-- $_m$ is pollution monitor
-
-- $_t$ is the month
-
-- $X$ is a vector of weather conditions (temperature, precipitation, sunlight duration, snowfall, wind, and cloud cover) as well as monitor-specific time trends
-
-- $\theta$ monitor fixed effects (c_code) that account for time-invariant factors relevant to pollution level (e.g., location)
-
-- $\gamma$ extracted month-of-year fixed effect to control for any national-level monthly changes
-
-- $\varepsilon$ is the error term
-
-
-\newpage
 ## Replication Modeling
+The focus in this section lies on the Replication Modeling. The goal is to confirm the validity of the results obtained from the original study and to ensure that the same (or close) results can be obtained using the same data and methods. The code below shows the steps taken to replicate the models used in the original study, including the estimation of fixed effects, the inclusion of weather variables, and the addition of monitor-specific time trends. 
 
 ```{r modeling, echo=TRUE, message=FALSE, warning=FALSE, fig.show="hold", out.width="100%", results='asis'}
 # Monitor fixed effects (225 - m_code)
@@ -221,6 +259,10 @@ fixest::etable(model1, model2, model3, tex = TRUE)
 
 - the data provided seems to be missing 5 data points
 - ...
+(Our result suggests that designation under the ANCL reduced the monthly mean ambient concentration of NO2  by 10–16% on average over June 1992–December 2015 for monitors in treated areas.
+Treatment Effect = -0.1288 ± t.critical (df, alpha/2) * 0.0136
+95% Confidence Interval = (-0.1552, -0.1023)) -> Written in presentation. 
+
 
 \newpage
 
