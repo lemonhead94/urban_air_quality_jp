@@ -139,7 +139,7 @@ df <- merge(dates, df, by = "y_month", all.x = TRUE)
 # get the actual value from the log of lnaverage_ndd
 df$average_ndd <- exp(df$lnaverage_ndd) %>% round(2)
 # get the actual value from the log of lnhmax_ndd
-df$max_ndd <- exp(df$lnhmax_ndd) %>% round(2)
+df$hmax_ndd <- exp(df$lnhmax_ndd) %>% round(2)
 
 # add month and year column variables for fixed effects
 df$month <- month(df$y_date)
@@ -147,29 +147,28 @@ df$year <- year(df$y_date)
 ```
 
 ```{r EDA-1, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', fig.width=10, fig.height=5}
-# mean of lnaverage_ndd
-nnd_graph <- df %>% 
-    group_by(y_date, treatment_effects) %>%
-    summarize(average_ndd_mean = mean(average_ndd))
+nnd_graph <- df %>%
+    group_by(year, treatment1992) %>%
+    summarize(mean_average_ndd = mean(average_ndd))
 
 # plot the mean of average_ndd
 ggplot(data = nnd_graph, 
-       mapping = aes(y=average_ndd_mean,
-                    x=y_date,
-                    color=factor(treatment_effects))) +
+       mapping = aes(y=mean_average_ndd,
+                    x=year,
+                    color=factor(treatment1992))) +
   geom_line(size = 0.5) +
   guides(color = guide_legend(title = element_blank())) +
   scale_color_manual(labels = c("Control", "Treatment"), 
                      values = c("black", "brown")) +
   labs(x="", 
        y = "Mean Ambient Concentraion of NO2 (ppb)",
-       title = "Time Trends of the Monthly Ambient Concentraion of NO2") +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0, 0)) +
+       title = "Time Trends of the Yearly Ambient Concentration of NO2") +
+  scale_x_continuous(breaks = seq(1981, 2015, 1), limits = c(1981, 2015), expand = c(0, 0)) +
   scale_y_continuous(limits = c(0, 42), expand = c(0,0)) +
   # Intervention is June 1992
-  geom_vline(xintercept = as.Date("1992-06-01"), linetype = "dashed", color = "red") +
+  geom_vline(xintercept = 1992, linetype = "dashed", color = "red") +
   # government support in 2004
-  geom_vline(xintercept = as.Date("2004-01-01"), linetype = "dashed", color = "blue") +
+  geom_vline(xintercept = 2004, linetype = "dashed", color = "blue") +
   theme_bw() + 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
         legend.position = "bottom")
@@ -177,34 +176,35 @@ ggplot(data = nnd_graph,
 
 
 ```{r EDA-2, echo=FALSE, message=FALSE, warning=FALSE, fig.align='center', fig.width=10, fig.height=5}
-# mean of lnaverage_ndd
-nnd_graph <- df %>% 
-    group_by(y_date, treatment_effects) %>%
-    summarize(max_ndd_mean = mean(max_ndd))
+nnd_graph <- df %>%
+    # mean hourly ndd per monitor (year / month)
+    group_by(year, month, treatment1992) %>%
+    summarize(hmax_max_yearly = mean(hmax_ndd)) %>%
+    group_by(year, treatment1992) %>%
+    summarize(hmax_max_yearly_test = max(hmax_max_yearly))
 
 # plot the mean of max_ndd
 ggplot(data = nnd_graph, 
-       mapping = aes(y=max_ndd_mean,
-                    x=y_date,
-                    color=factor(treatment_effects))) +
+       mapping = aes(y=hmax_max_yearly_test,
+                    x=year,
+                    color=factor(treatment1992))) +
   geom_line(size = 0.5) +
   guides(color = guide_legend(title = element_blank())) +
   scale_color_manual(labels = c("Control", "Treatment"), 
                      values = c("black", "brown")) +
   labs(x="", 
-       y = "Hourly maximum NO2 Concentraion (ppb)",
-       title = "Time Trends of the Hourly Maximum Ambient Concentraion of NO_2") +
-  scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0, 0)) +
+       y = "Hourly maximum NO2 Concentration (ppb)",
+       title = "Time Trends of the Hourly Maximum Ambient Concentration of NO_2") +  
+  scale_x_continuous(breaks = seq(1981, 2015, 1), limits = c(1981, 2015), expand = c(0, 0)) +
   scale_y_continuous(limits = c(0, 140), expand = c(0,0)) +
   # Intervention is June 1992
-  geom_vline(xintercept = as.Date("1992-06-01"), linetype = "dashed", color = "red") +
+  geom_vline(xintercept = 1992, linetype = "dashed", color = "red") +
   # government support in 2004
-  geom_vline(xintercept = as.Date("2004-01-01"), linetype = "dashed", color = "blue") +
+  geom_vline(xintercept = 2004, linetype = "dashed", color = "blue") +
   theme_bw() + 
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), 
         legend.position = "bottom")
 ```
-@Jorit bitte noch den neuen Code machen und die description ergänzen  
 From the above charts, it is clear that the intervention date was in June 1992.
 According to Nishitateno and Burke [-@Nishitateno2020], the treatment group covers 190 monitors in 109 designated municipalities in Tokyo, Kanagawa, Chiba, Saitama, Osaka, and Hyogo prefectures. The control group covers 35 monitors in five non-designated municipalities (Sapporo, Sendai, Hiroshima, Kitakyusyu, and Fukuoka).
 In addition, Nishitateno and Burke [-@Nishitateno2020] mention that they do not use the post-compliance period (January 2004 – December 2015) as the treatment period due to unclear cutoff as can be observed in blue above. The reason seem to be non-compliant vehicles had been replaced before the compliance obligation began induced through government support.
@@ -240,19 +240,25 @@ The focus in this section lies on the Replication Modeling. The goal is to confi
 
 ```{r modeling, echo=TRUE, message=FALSE, warning=FALSE, fig.show="hold", out.width="100%", results='asis'}
 # Monitor fixed effects (225 - m_code)
-model1 <- feols(fml = lnaverage_ndd ~ treatment_effects * treatment1992 | 
+model1 <- feols(fml = lnaverage_ndd ~ treatment_effects | 
                   month + m_code, data = df)
 # fixed effects months + Monitor fixed effects + Weather variables
-model2 <- feols(fml = lnaverage_ndd ~ treatment_effects * treatment1992 + 
+model2 <- feols(fml = lnaverage_ndd ~ treatment_effects + 
                   temp + precip + daylight + snow + wind + cloud | 
                   month + m_code, data = df)
 
 # EXTRA: fixed effects months, weather and monitor-specific time trends (partially)
-model3 <- feols(fml = lnaverage_ndd ~ treatment_effects * treatment1992 + 
+model3 <- feols(fml = lnaverage_ndd ~ treatment_effects + 
                   temp + precip + daylight + snow + wind + cloud |
                   month*year + m_code, data = df)
 
 fixest::etable(model1, model2, model3, tex = TRUE)
+```
+
+### Robustness Check
+
+```{r robustness-check, echo=TRUE, message=FALSE, warning=FALSE}
+summary(model2, vcov = "HC1")
 ```
 
 **Interpretation**
